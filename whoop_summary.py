@@ -184,16 +184,46 @@ def build_summary(token):
 
     day_name = get_day_name()
 
+    # Recovery insight
+    if recovery_score >= 67:
+        rec_tip = "Green zone — push hard today"
+    elif recovery_score >= 34:
+        rec_tip = "Yellow zone — moderate effort"
+    else:
+        rec_tip = "Red zone — prioritize rest"
+
+    # Sleep insight
+    sleep_debt = sleep_needed_ms - total_sleep_ms if total_sleep_ms < sleep_needed_ms else 0
+    if sleep_perf >= 85:
+        sleep_tip = "Great sleep"
+    elif sleep_perf >= 70:
+        sleep_tip = f"Decent — {format_duration(sleep_debt)} short" if sleep_debt else "Decent"
+    else:
+        sleep_tip = f"Low — {format_duration(sleep_debt)} short" if sleep_debt else "Low"
+
+    # Strain insight
+    if strain >= 18:
+        strain_tip = "All out"
+    elif strain >= 14:
+        strain_tip = "High — good training day"
+    elif strain >= 10:
+        strain_tip = "Moderate"
+    elif strain >= 7:
+        strain_tip = "Light"
+    else:
+        strain_tip = "Minimal"
+
     message = (
         f"\U0001F4CA WHOOP Daily — {day_name}\n\n"
-        f"{emoji} Recovery: {int(recovery_score)}%\n"
+        f"{emoji} Recovery: {int(recovery_score)}%  _{rec_tip}_\n"
         f"   HRV: {hrv:.1f} ms\n"
         f"   RHR: {int(rhr)} bpm\n\n"
         f"\U0001F634 Sleep: {format_duration(total_sleep_ms)} of {format_duration(sleep_needed_ms)} needed\n"
-        f"   Performance: {int(sleep_perf)}%\n"
-        f"   Efficiency: {int(sleep_eff)}%\n"
+        f"   {sleep_tip}\n"
+        f"   Performance: {int(sleep_perf)}% | Efficiency: {int(sleep_eff)}%\n"
         f"   Light: {format_duration(light_ms)} | Deep: {format_duration(deep_ms)} | REM: {format_duration(rem_ms)}\n\n"
-        f"\U0001F525 Strain: {strain:.1f}"
+        f"\U0001F525 Strain: {strain:.1f}  _{strain_tip}_\n\n"
+        f"\U0001F3AF Targets: Recovery 67%+ | Sleep 85%+ | HRV trending up"
     )
 
     return message
