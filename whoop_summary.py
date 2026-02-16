@@ -139,32 +139,26 @@ def build_summary(token):
 
     # Fetch data using v2 API
     cycle_data = whoop_get("/v2/cycle", token, params)
+    recovery_data = whoop_get("/v2/recovery", token, params)
     sleep_data = whoop_get("/v2/activity/sleep", token, params)
 
-    # Parse cycle — get strain and recovery (recovery is embedded in cycle in v2)
+    # Parse cycle — get strain
     cycles = cycle_data.get("records", [])
     if cycles:
         cycle = cycles[0]
-        strain = cycle.get("score", {}).get("strain", 0)
-        # Recovery is nested in the cycle response
-        recovery_score_obj = cycle.get("score", {})
-        recovery_score = recovery_score_obj.get("recovery_score", 0) or 0
-        hrv = recovery_score_obj.get("hrv_rmssd_milli", 0) or 0
-        rhr = recovery_score_obj.get("resting_heart_rate", 0) or 0
+        strain = cycle.get("score", {}).get("strain", 0) or 0
     else:
-        strain, recovery_score, hrv, rhr = 0, 0, 0, 0
+        strain = 0
 
-    # If recovery wasn't in cycle, try dedicated recovery endpoint
-    if recovery_score == 0 and cycles:
-        try:
-            cycle_id = cycles[0].get("id")
-            rec_data = whoop_get(f"/v2/cycle/{cycle_id}/recovery", token)
-            rec_score = rec_data.get("score", {})
-            recovery_score = rec_score.get("recovery_score", 0) or 0
-            hrv = rec_score.get("hrv_rmssd_milli", 0) or 0
-            rhr = rec_score.get("resting_heart_rate", 0) or 0
-        except Exception as e:
-            print(f"Could not fetch recovery separately: {e}")
+    # Parse recovery (separate endpoint in v2)
+    recoveries = recovery_data.get("records", [])
+    if recoveries:
+        rec_score = recoveries[0].get("score", {})
+        recovery_score = rec_score.get("recovery_score", 0) or 0
+        hrv = rec_score.get("hrv_rmssd_milli", 0) or 0
+        rhr = rec_score.get("resting_heart_rate", 0) or 0
+    else:
+        recovery_score, hrv, rhr = 0, 0, 0
 
     emoji = get_recovery_emoji(recovery_score)
 
@@ -173,7 +167,10 @@ def build_summary(token):
     if sleeps:
         sl = sleeps[0].get("score", {})
         stages = sl.get("stage_summary", {})
-        total_sleep_ms = stages.get("total_in_bed_time_milli", 0) or 0
+        # Total sleep = in-bed minus awake
+        in_bed_ms = stages.get("total_in_bed_time_milli", 0) or 0
+        awake_ms = stages.get("total_awake_time_milli", 0) or 0
+        total_sleep_ms = in_bed_ms - awake_ms
         sleep_needed = sl.get("sleep_needed", {})
         sleep_needed_ms = sleep_needed.get("baseline_milli", 0) or 0
         sleep_perf = sl.get("sleep_performance_percentage", 0) or 0
@@ -189,12 +186,12 @@ def build_summary(token):
 
     message = (
         f"\U0001F4CA WHOOP Daily — {day_name}\n\n"
-        f"{emoji} Recovery: {recovery_score}%\n"
-        f"   HRV: {hrv:.0f} ms\n"
-        f"   RHR: {rhr:.0f} bpm\n\n"
+        f"{emoji} Recovery: {int(recovery_score)}%\n"
+        f"   HRV: {hrv:.1f} ms\n"
+        f"   RHR: {int(rhr)} bpm\n\n"
         f"\U0001F634 Sleep: {format_duration(total_sleep_ms)} of {format_duration(sleep_needed_ms)} needed\n"
-        f"   Performance: {sleep_perf}%\n"
-        f"   Efficiency: {sleep_eff}%\n"
+        f"   Performance: {int(sleep_perf)}%\n"
+        f"   Efficiency: {int(sleep_eff)}%\n"
         f"   Light: {format_duration(light_ms)} | Deep: {format_duration(deep_ms)} | REM: {format_duration(rem_ms)}\n\n"
         f"\U0001F525 Strain: {strain:.1f}"
     )
