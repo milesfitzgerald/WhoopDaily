@@ -1,13 +1,17 @@
 """
 WHOOP Daily Summary → SMS/WhatsApp via Twilio
 Fetches yesterday's recovery, sleep, and strain data from WHOOP and sends a text.
+Auto-rotates the WHOOP refresh token via GitHub Actions API.
 """
 
+import base64
+import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
 
 import requests
+from nacl import encoding, public
 
 # WHOOP API
 WHOOP_CLIENT_ID = os.environ["WHOOP_CLIENT_ID"]
@@ -22,9 +26,57 @@ TWILIO_AUTH_TOKEN = os.environ["TWILIO_AUTH_TOKEN"]
 TWILIO_FROM_NUMBER = os.environ["TWILIO_FROM_NUMBER"]
 MY_PHONE_NUMBER = os.environ["MY_PHONE_NUMBER"]
 
+# GitHub (for auto-rotating refresh token)
+GITHUB_TOKEN = os.environ.get("GH_TOKEN", "")
+GITHUB_REPO = os.environ.get("GITHUB_REPOSITORY", "")
+
+
+def encrypt_secret(public_key: str, secret_value: str) -> str:
+    """Encrypt a secret using the repo's public key for GitHub Actions."""
+    pk = public.PublicKey(public_key.encode("utf-8"), encoding.Base64Encoder())
+    sealed = public.SealedBox(pk).encrypt(secret_value.encode("utf-8"))
+    return base64.b64encode(sealed).decode("utf-8")
+
+
+def update_github_secret(secret_name: str, secret_value: str):
+    """Update a GitHub Actions secret via the API."""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        print(f"Cannot auto-update secret (no GH_TOKEN or GITHUB_REPOSITORY).")
+        return False
+
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json",
+    }
+
+    # Get the repo public key
+    r = requests.get(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/secrets/public-key",
+        headers=headers,
+    )
+    if r.status_code != 200:
+        print(f"Failed to get repo public key: {r.status_code}")
+        return False
+
+    key_data = r.json()
+    encrypted = encrypt_secret(key_data["key"], secret_value)
+
+    # Update the secret
+    r = requests.put(
+        f"https://api.github.com/repos/{GITHUB_REPO}/actions/secrets/{secret_name}",
+        headers=headers,
+        json={"encrypted_value": encrypted, "key_id": key_data["key_id"]},
+    )
+    if r.status_code in (201, 204):
+        print(f"Auto-updated {secret_name} in GitHub secrets.")
+        return True
+    else:
+        print(f"Failed to update secret: {r.status_code} {r.text}")
+        return False
+
 
 def get_access_token():
-    """Exchange refresh token for a fresh access token."""
+    """Exchange refresh token for a fresh access token. Auto-rotates if WHOOP issues a new refresh token."""
     response = requests.post(TOKEN_URL, data={
         "grant_type": "refresh_token",
         "refresh_token": WHOOP_REFRESH_TOKEN,
@@ -36,8 +88,8 @@ def get_access_token():
 
     new_refresh = data.get("refresh_token")
     if new_refresh and new_refresh != WHOOP_REFRESH_TOKEN:
-        print(f"WARNING: WHOOP issued a new refresh token. Update your WHOOP_REFRESH_TOKEN secret.")
-        print(f"New refresh token: {new_refresh}")
+        print("WHOOP issued a new refresh token. Auto-updating GitHub secret...")
+        update_github_secret("WHOOP_REFRESH_TOKEN", new_refresh)
 
     return data["access_token"]
 
