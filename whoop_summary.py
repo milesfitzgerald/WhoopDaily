@@ -201,7 +201,7 @@ def build_summary(token):
     else:
         sleep_tip = f"Low — {format_duration(sleep_debt)} short" if sleep_debt else "Low"
 
-    # Strain insight
+    # Strain insight & recommendation
     if strain >= 18:
         strain_tip = "All out"
     elif strain >= 14:
@@ -213,17 +213,69 @@ def build_summary(token):
     else:
         strain_tip = "Minimal"
 
+    # Strain recommendation based on recovery
+    if recovery_score >= 67:
+        if strain < 14:
+            strain_rec = "\U0001F4AA You can push harder — aim for 14+ strain today"
+        else:
+            strain_rec = "\U0001F4AA Strong day — keep it up"
+    elif recovery_score >= 34:
+        if strain < 10:
+            strain_rec = "\u26A0\uFE0F Moderate effort today — aim for 10-14 strain"
+        else:
+            strain_rec = "\u26A0\uFE0F Good effort — don't overdo it today"
+    else:
+        strain_rec = "\U0001F6D1 Recovery day — keep strain under 10"
+
+    # Bedtime recommendation
+    # Calculate ideal bedtime: need to get sleep_needed_ms of actual sleep
+    # Account for sleep efficiency (time in bed vs actual sleep)
+    if sleep_eff and sleep_eff > 0:
+        # Time in bed needed = sleep needed / efficiency
+        bed_time_needed_ms = sleep_needed_ms / (sleep_eff / 100)
+    else:
+        bed_time_needed_ms = sleep_needed_ms * 1.1  # assume 90% efficiency
+
+    bed_time_needed_min = int(bed_time_needed_ms / 60000)
+    bed_hours = bed_time_needed_min // 60
+    bed_mins = bed_time_needed_min % 60
+
+    # Assuming 9:00 AM wake time (Barcelona), work backwards
+    # Wake at 7:30 AM, subtract bed time needed
+    wake_hour, wake_min = 7, 30
+    total_wake_min = wake_hour * 60 + wake_min
+    bedtime_min = total_wake_min - bed_time_needed_min
+    if bedtime_min < 0:
+        bedtime_min += 24 * 60
+    bt_hour = bedtime_min // 60
+    bt_min = bedtime_min % 60
+    bedtime_str = f"{bt_hour}:{bt_min:02d}"
+
+    # Sleep debt recommendation
+    if sleep_debt > 0:
+        debt_min = int(sleep_debt / 60000)
+        early_min = debt_min  # go to bed earlier by the debt amount
+        early_bt_min = bedtime_min - early_min
+        if early_bt_min < 0:
+            early_bt_min += 24 * 60
+        early_hour = early_bt_min // 60
+        early_minute = early_bt_min % 60
+        sleep_rec = f"\U0001F6CF Bedtime tonight: {early_hour}:{early_minute:02d} (extra {format_duration(sleep_debt)} to catch up)"
+    else:
+        sleep_rec = f"\U0001F6CF Bedtime tonight: {bedtime_str}"
+
     message = (
         f"\U0001F4CA WHOOP Daily — {day_name}\n\n"
         f"{emoji} Recovery: {int(recovery_score)}%  _{rec_tip}_\n"
-        f"   HRV: {hrv:.1f} ms\n"
-        f"   RHR: {int(rhr)} bpm\n\n"
+        f"   HRV: {hrv:.1f} ms | RHR: {int(rhr)} bpm\n\n"
         f"\U0001F634 Sleep: {format_duration(total_sleep_ms)} of {format_duration(sleep_needed_ms)} needed\n"
         f"   {sleep_tip}\n"
         f"   Performance: {int(sleep_perf)}% | Efficiency: {int(sleep_eff)}%\n"
         f"   Light: {format_duration(light_ms)} | Deep: {format_duration(deep_ms)} | REM: {format_duration(rem_ms)}\n\n"
         f"\U0001F525 Strain: {strain:.1f}  _{strain_tip}_\n\n"
-        f"\U0001F3AF Targets: Recovery 67%+ | Sleep 85%+ | HRV trending up"
+        f"*Today's Plan:*\n"
+        f"{strain_rec}\n"
+        f"{sleep_rec}"
     )
 
     return message
