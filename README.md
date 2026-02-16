@@ -1,6 +1,30 @@
-# WhoopDaily
+<p align="center">
+  <pre align="center">
+ __        ___                       ____        _ _
+ \ \      / / |__   ___   ___  _ __ |  _ \  __ _(_) |_   _
+  \ \ /\ / /| '_ \ / _ \ / _ \| '_ \| | | |/ _` | | | | | |
+   \ V  V / | | | | (_) | (_) | |_) | |_| | (_| | | | |_| |
+    \_/\_/  |_| |_|\___/ \___/| .__/|____/ \__,_|_|_|\__, |
+                               |_|                    |___/
+  </pre>
+</p>
 
-Get a daily WhatsApp (or SMS) message with your WHOOP recovery, sleep, and strain data — plus actionable recommendations.
+<p align="center">
+  <b>Your WHOOP data, delivered to your phone every morning.</b>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/WHOOP-API%20v2-000000?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPjwvc3ZnPg==" alt="WHOOP API">
+  <img src="https://img.shields.io/badge/GitHub_Actions-Automated-2088FF?style=for-the-badge&logo=github-actions&logoColor=white" alt="GitHub Actions">
+  <img src="https://img.shields.io/badge/Twilio-WhatsApp%20%2F%20SMS-F22F46?style=for-the-badge&logo=twilio&logoColor=white" alt="Twilio">
+  <img src="https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+</p>
+
+---
+
+## What You Get
+
+Every morning, a WhatsApp message like this lands on your phone:
 
 ```
 📊 WHOOP Daily — Monday, Feb 16
@@ -20,15 +44,58 @@ Today's Plan:
 🛏 Bedtime tonight: 23:15 (extra 0h 27m to catch up)
 ```
 
+### Recovery Zones
+
+| Zone | Score | Meaning |
+|:----:|:-----:|---------|
+| :green_circle: | 67-100% | **Green** — Push hard, your body is ready |
+| :yellow_circle: | 34-66% | **Yellow** — Moderate effort, don't overdo it |
+| :red_circle: | 0-33% | **Red** — Rest and recover |
+
+---
+
 ## How It Works
 
-WHOOP API v2 → Python → Twilio → WhatsApp/SMS to your phone
+```
+                    Every morning at 9:00 AM
+                            |
+                            v
+               +------------------------+
+               |    GitHub Actions       |
+               |    (cron scheduler)     |
+               +------------------------+
+                            |
+                            v
+               +------------------------+
+               |    WHOOP API v2        |
+               |                        |
+               |  Recovery  Sleep       |
+               |  Strain    HRV/RHR    |
+               +------------------------+
+                            |
+                            v
+               +------------------------+
+               |    Python Script       |
+               |                        |
+               |  Parse + Insights +    |
+               |  Recommendations       |
+               +------------------------+
+                            |
+                            v
+               +------------------------+
+               |    Twilio API          |
+               |                        |
+               |  WhatsApp or SMS  -->  📱
+               +------------------------+
+```
 
-Runs daily via GitHub Actions (free). Refresh tokens auto-rotate so it never breaks.
+> Refresh tokens auto-rotate on every run. Set it and forget it.
+
+---
 
 ## Setup
 
-### 1. WHOOP Developer App
+### Step 1: WHOOP Developer App
 
 1. Go to [developer-dashboard.whoop.com](https://developer-dashboard.whoop.com)
 2. Log in and click **Create App**
@@ -36,7 +103,7 @@ Runs daily via GitHub Actions (free). Refresh tokens auto-rotate so it never bre
 4. Note your **Client ID** and **Client Secret**
 5. Request scopes: `read:recovery`, `read:cycles`, `read:sleep`, `read:profile`
 
-### 2. Get Your Refresh Token
+### Step 2: Get Your Refresh Token
 
 ```bash
 export WHOOP_CLIENT_ID="your_client_id"
@@ -48,23 +115,23 @@ python auth_setup.py
 
 Authorize in the browser. The script prints your refresh token — save it.
 
-### 3. Twilio Setup
+### Step 3: Twilio Setup
 
 1. Sign up at [twilio.com](https://www.twilio.com) (free trial or paid)
 2. For **WhatsApp**: Go to Messaging → Try it out → Send a WhatsApp message. Join the sandbox from your phone.
 3. For **SMS**: Get a phone number from Twilio (paid account required for multi-segment messages to international numbers)
 4. Note your **Account SID**, **Auth Token**, and **Twilio number**
 
-### 4. GitHub Personal Access Token
+### Step 4: GitHub Personal Access Token
 
 1. Go to [github.com/settings/tokens?type=beta](https://github.com/settings/tokens?type=beta)
 2. Generate a new fine-grained token
 3. Scope it to this repository only
 4. Grant **Secrets: Read and write** permission
 
-This allows the script to auto-rotate the WHOOP refresh token on each run.
+> This allows the script to auto-rotate the WHOOP refresh token on each run.
 
-### 5. Add Repository Secrets
+### Step 5: Add Repository Secrets
 
 Go to your repo → **Settings → Secrets and variables → Actions** and add:
 
@@ -79,43 +146,71 @@ Go to your repo → **Settings → Secrets and variables → Actions** and add:
 | `MY_PHONE_NUMBER` | `whatsapp:+1234567890` or `+1234567890` for SMS |
 | `GH_PAT` | From step 4 |
 
-### 6. Test
+### Step 6: Test
 
 Go to **Actions → WHOOP Daily Summary → Run workflow**
+
+---
 
 ## Schedule
 
 The workflow runs daily at **9:00 AM CET (Barcelona)**. To change the time, edit the cron in `.github/workflows/daily-summary.yml`:
 
 | Timezone | 9:00 AM local | Cron |
-|----------|--------------|------|
+|:--------:|:-------------:|:----:|
 | CET (UTC+1) | 08:00 UTC | `0 8 * * *` |
 | EST (UTC-5) | 14:00 UTC | `0 14 * * *` |
 | CST (UTC-6) | 15:00 UTC | `0 15 * * *` |
 | PST (UTC-8) | 17:00 UTC | `0 17 * * *` |
 
+---
+
 ## Token Auto-Rotation
 
-WHOOP refresh tokens are single-use — each time one is exchanged for an access token, WHOOP issues a new refresh token. The script automatically updates the `WHOOP_REFRESH_TOKEN` GitHub secret on every run via the GitHub API, so you never need to manually refresh it.
+```
+Run 1:  refresh_token_A  -->  access_token + refresh_token_B  -->  saves B to GitHub
+Run 2:  refresh_token_B  -->  access_token + refresh_token_C  -->  saves C to GitHub
+Run 3:  refresh_token_C  -->  access_token + refresh_token_D  -->  saves D to GitHub
+  ...forever
+```
+
+WHOOP refresh tokens are single-use. The script automatically saves the new token back to GitHub Secrets via the GitHub API, so you never need to touch it.
+
+---
 
 ## WhatsApp Sandbox Note
 
 If using the Twilio WhatsApp sandbox, the session expires after **72 hours of inactivity**. Since this runs daily, it stays active. If you miss messages, re-send the `join` code to the Twilio WhatsApp number.
 
+---
+
 ## Cost
 
-| Service | Cost |
-|---------|------|
-| WHOOP API | Free |
-| GitHub Actions | Free (uses ~1 min/day of 2,000 min/month) |
-| Twilio WhatsApp | ~$0.005/message (~$0.15/month) |
-| Twilio SMS | ~$0.01-0.10/message depending on destination |
+| Service | Cost | |
+|---------|------|-|
+| WHOOP API | Free | :white_check_mark: |
+| GitHub Actions | Free | ~1 min/day of 2,000 min/month |
+| Twilio WhatsApp | ~$0.15/month | ~$0.005/message |
+| Twilio SMS | ~$0.30-3.00/month | depends on destination |
+
+---
 
 ## Files
 
-| File | Description |
-|------|-------------|
-| `whoop_summary.py` | Main script — fetches WHOOP data, builds summary, sends via Twilio |
-| `auth_setup.py` | One-time OAuth setup to get your initial refresh token |
-| `requirements.txt` | Python dependencies |
-| `.github/workflows/daily-summary.yml` | GitHub Actions workflow for daily scheduling |
+```
+WhoopDaily/
+├── .github/
+│   └── workflows/
+│       └── daily-summary.yml    # GitHub Actions cron + workflow
+├── whoop_summary.py             # Main script: fetch, parse, send
+├── auth_setup.py                # One-time OAuth token setup
+├── auth_server.py               # OAuth callback helper
+├── requirements.txt             # Python deps: requests, PyNaCl
+└── README.md                    # You are here
+```
+
+---
+
+<p align="center">
+  Built with :coffee: and WHOOP data
+</p>
