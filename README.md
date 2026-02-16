@@ -1,0 +1,2 @@
+# WhoopDaily
+WHOOP Daily Summary
